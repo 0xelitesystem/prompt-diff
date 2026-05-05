@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Diff</title>
+<meta name="description" content="Compare two prompts side-by-side with character, word, and line-level diff highlighting. Browser-only, no tracking.">
+<meta name="ai.description" content="Single-file HTML tool for comparing two prompt versions. Implements the Myers diff algorithm in vanilla JavaScript and surfaces character, word, and line-level differences with side-by-side and inline views. No frameworks, no dependencies, no third-party scripts. Light and dark themes. Useful for prompt engineering iteration where small wording changes can cause large output differences.">
+<meta property="og:title" content="Prompt Diff">
+<meta property="og:description" content="Compare two prompts side-by-side with diff highlighting.">
+<meta property="og:type" content="website">
+<style>
+:root {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --surface-2: #f8f9fb;
+  --ink: #0e1116;
+  --ink-soft: #5a6271;
+  --rule: #d4d8de;
+  --rule-strong: #1e2329;
+  --accent: #0058b8;
+  --accent-soft: #d9e7f7;
+  --add-bg: #d8eed9;
+  --add-fg: #1f6f43;
+  --add-bg-strong: #95d8a3;
+  --del-bg: #fadddd;
+  --del-fg: #a82a22;
+  --del-bg-strong: #f3aaa6;
+}
+[data-theme="dark"] {
+  --bg: #0e1116;
+  --surface: #1a1f26;
+  --surface-2: #161a20;
+  --ink: #e8ebef;
+  --ink-soft: #9aa3b1;
+  --rule: #2a3038;
+  --rule-strong: #e8ebef;
+  --accent: #4d9eff;
+  --accent-soft: #1a2c47;
+  --add-bg: #14361d;
+  --add-fg: #7fc99c;
+  --add-bg-strong: #1f5e2e;
+  --del-bg: #3a1414;
+  --del-fg: #f08585;
+  --del-bg-strong: #6a1f1f;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+  /* Subtle blueprint grid */
+  background-image:
+    linear-gradient(var(--rule) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: -1px -1px;
+  background-attachment: fixed;
+}
+[data-theme="dark"] body { background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px); }
+
+.skip-link { position: absolute; left: -9999px; top: 0; background: var(--accent); color: var(--surface); padding: 0.5rem 1rem; z-index: 100; font-weight: 600; }
+.skip-link:focus { left: 1rem; top: 1rem; }
+
+.layout {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.5rem;
+  align-items: end;
+  margin-bottom: 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 2px solid var(--rule-strong);
+  background: transparent;
+}
+.brand {
+  font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+h1 .accent { color: var(--accent); }
+.subtitle {
+  color: var(--ink-soft);
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  max-width: 520px;
+}
+
+.controls { display: flex; gap: 0.5rem; flex-shrink: 0; align-items: flex-start; flex-wrap: wrap; }
+.theme-toggle, button.secondary {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.theme-toggle:hover, button.secondary:hover { background: var(--ink); color: var(--bg); }
+.theme-toggle:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-toggle svg { width: 14px; height: 14px; }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 4px 4px 0 var(--rule-strong);
+}
+
+.panel-head {
+  display: flex; align-items: baseline; gap: 0.625rem;
+  margin-bottom: 0.875rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+.panel-num {
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+}
+.panel-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 760px) { .input-grid { grid-template-columns: 1fr; } }
+
+.input-block label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+}
+.input-block label .badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.625rem;
+  border-radius: 2px;
+  font-weight: 600;
+}
+.input-block.before label .badge { background: var(--del-bg); color: var(--del-fg); }
+.input-block.after label .badge  { background: var(--add-bg); color: var(--add-fg); }
+
+textarea {
+  width: 100%;
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0.75rem 0.875rem;
+  font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  resize: vertical;
+  min-height: 180px;
+}
+textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+
+.row { display: flex; gap: 0.625rem; flex-wrap: wrap; align-items: center; margin-top: 0.875rem; }
+button.primary {
+  background: var(--accent);
+  color: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+button.primary:hover:not(:disabled) { filter: brightness(0.92); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Mode tabs */
+.mode-tabs {
+  display: inline-flex;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.mode-tab {
+  background: var(--surface);
+  color: var(--ink);
+  border: none;
+  border-right: 1px solid var(--rule-strong);
+  padding: 0.5rem 0.875rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.mode-tab:last-child { border-right: none; }
+.mode-tab[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.mode-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Stats row */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.875rem;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.stat .lbl {
+  display: block;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+}
+.stat .val {
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.15rem;
+}
+.stat.add .val { color: var(--add-fg); }
+.stat.del .val { color: var(--del-fg); }
+
+/* Diff display */
+.diff-view {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0.875rem 1rem;
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 600px;
+  overflow-y: auto;
+  min-height: 100px;
+}
+.diff-view.empty {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-style: italic;
+  white-space: normal;
+  text-align: center;
+}
+
+/* Inline view */
+.inline-view del, .inline-view ins, .word-view del, .word-view ins {
+  text-decoration: none;
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+}
+.inline-view del, .word-view del {
+  background: var(--del-bg);
+  color: var(--del-fg);
+  text-decoration: line-through;
+  text-decoration-color: var(--del-fg);
+}
+.inline-view ins, .word-view ins {
+  background: var(--add-bg);
+  color: var(--add-fg);
+  font-weight: 600;
+}
+
+/* Side-by-side view */
+.split-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  overflow: hidden;
+}
+.split-side {
+  padding: 0.875rem 1rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-y: auto;
+  max-height: 600px;
+  min-height: 100px;
+}
+.split-side.before { border-right: 1px solid var(--rule); }
+.split-side .line { display: block; padding: 0 0.4rem; margin: 0 -0.4rem; }
+.split-side.before .line.changed { background: var(--del-bg); color: var(--del-fg); }
+.split-side.before .line.removed { background: var(--del-bg-strong); color: var(--del-fg); font-weight: 600; }
+.split-side.after  .line.changed { background: var(--add-bg); color: var(--add-fg); }
+.split-side.after  .line.added   { background: var(--add-bg-strong); color: var(--add-fg); font-weight: 600; }
+.split-side .line.empty { color: var(--ink-soft); opacity: 0.4; }
+
+@media (max-width: 640px) {
+  .split-view { grid-template-columns: 1fr; }
+  .split-side.before { border-right: none; border-bottom: 1px solid var(--rule); }
+  .layout { padding: 1.5rem 1rem 3rem; }
+  h1 { font-size: 1.5rem; }
+}
+
+footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+footer a { color: var(--ink-soft); text-decoration: underline; text-underline-offset: 2px; }
+footer a:hover, footer a:focus { color: var(--accent); }
+</style>
+</head>
+<body data-theme="light">
+<a href="#main" class="skip-link">Skip to main content</a>
+<div class="layout">
+
+  <header>
+    <div>
+      <div class="brand">/// PROMPT // DIFF</div>
+      <h1>Iterate <span class="accent">precisely.</span><br>Diff prompt versions.</h1>
+      <p class="subtitle">Paste two versions of a prompt and see exactly what changed. Word, line, and character-level diffs. Browser-only.</p>
+    </div>
+    <div class="controls">
+      <button type="button" class="theme-toggle" id="theme-btn" aria-label="Toggle dark theme" aria-pressed="false">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <span id="theme-label">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-num">01</span>
+        <h2 class="panel-title">Inputs</h2>
+      </div>
+      <div class="input-grid">
+        <div class="input-block before">
+          <label for="text-before">Before <span class="badge">A</span></label>
+          <textarea id="text-before" spellcheck="false" placeholder="Paste the original prompt here..."></textarea>
+        </div>
+        <div class="input-block after">
+          <label for="text-after">After <span class="badge">B</span></label>
+          <textarea id="text-after" spellcheck="false" placeholder="Paste the revised prompt here..."></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <button type="button" class="primary" id="diff-btn">Compute diff</button>
+        <button type="button" class="secondary" id="swap-btn">Swap A &lt;-&gt; B</button>
+        <button type="button" class="secondary" id="clear-btn">Clear</button>
+      </div>
+    </section>
+
+    <section class="panel" id="results-panel" style="display: none;">
+      <div class="panel-head">
+        <span class="panel-num">02</span>
+        <h2 class="panel-title">Diff</h2>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="row" style="margin-top: 0; margin-bottom: 1rem;">
+        <div class="mode-tabs" role="tablist" aria-label="Diff view mode">
+          <button class="mode-tab" data-mode="word"  role="tab" aria-selected="true">Word</button>
+          <button class="mode-tab" data-mode="char"  role="tab" aria-selected="false">Char</button>
+          <button class="mode-tab" data-mode="line"  role="tab" aria-selected="false">Line (split)</button>
+        </div>
+      </div>
+      <div id="diff-output"></div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Source: <a href="https://github.com/0xelitesystem/prompt-diff" target="_blank" rel="noopener">github.com/0xelitesystem/prompt-diff</a></p>
+    <p>Related: <a href="https://github.com/0xelitesystem/prompt-templates" target="_blank" rel="noopener">prompt-templates</a> &middot; <a href="https://github.com/0xelitesystem/claude-eval-harness" target="_blank" rel="noopener">claude-eval-harness</a> &middot; <a href="https://github.com/0xelitesystem/prompt-cost-calculator" target="_blank" rel="noopener">prompt-cost-calculator</a></p>
+    <p>No data leaves your browser. MIT licensed. Diff algorithm: Myers (1986).</p>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+// =============================================================================
+// Myers diff algorithm — a small, well-tested implementation.
+// Returns an array of edits: { type: 'eq'|'add'|'del', value: <token> }.
+// Works on arrays of any token type (chars, words, lines).
+//
+// Reference: Eugene Myers, "An O(ND) Difference Algorithm and Its Variations"
+// =============================================================================
+function myersDiff(a, b, eq) {
+  eq = eq || ((x, y) => x === y);
+  const N = a.length, M = b.length;
+  const max = N + M;
+  if (max === 0) return [];
+  // Edge case: identical
+  if (N === M) {
+    let same = true;
+    for (let i = 0; i < N; i++) if (!eq(a[i], b[i])) { same = false; break; }
+    if (same) return a.map(v => ({ type: "eq", value: v }));
+  }
+  const v = new Array(2 * max + 1);
+  v[1 + max] = 0;
+  const trace = [];
+  let foundD = -1;
+
+  outer: for (let d = 0; d <= max; d++) {
+    trace.push(v.slice());
+    for (let k = -d; k <= d; k += 2) {
+      let x;
+      if (k === -d || (k !== d && v[k - 1 + max] < v[k + 1 + max])) {
+        x = v[k + 1 + max];
+      } else {
+        x = v[k - 1 + max] + 1;
+      }
+      let y = x - k;
+      while (x < N && y < M && eq(a[x], b[y])) { x++; y++; }
+      v[k + max] = x;
+      if (x >= N && y >= M) { foundD = d; break outer; }
+    }
+  }
+  if (foundD === -1) return [];
+
+  // Backtrack
+  const edits = [];
+  let x = N, y = M;
+  for (let d = foundD; d > 0; d--) {
+    const vp = trace[d];
+    const k = x - y;
+    let prevK;
+    if (k === -d || (k !== d && vp[k - 1 + max] < vp[k + 1 + max])) {
+      prevK = k + 1;
+    } else {
+      prevK = k - 1;
+    }
+    const prevX = vp[prevK + max];
+    const prevY = prevX - prevK;
+    while (x > prevX && y > prevY) {
+      edits.push({ type: "eq", value: a[x - 1] });
+      x--; y--;
+    }
+    if (d > 0) {
+      if (x === prevX) {
+        edits.push({ type: "add", value: b[y - 1] });
+        y--;
+      } else {
+        edits.push({ type: "del", value: a[x - 1] });
+        x--;
+      }
+    }
+  }
+  while (x > 0 && y > 0) {
+    edits.push({ type: "eq", value: a[x - 1] });
+    x--; y--;
+  }
+  while (x > 0) { edits.push({ type: "del", value: a[x - 1] }); x--; }
+  while (y > 0) { edits.push({ type: "add", value: b[y - 1] }); y--; }
+  return edits.reverse();
+}
+
+// =============================================================================
+// Tokenizers
+// =============================================================================
+function tokenizeChars(s) { return Array.from(s); } // handles surrogate pairs
+function tokenizeWords(s) {
+  // Split into words AND the whitespace/punctuation between them, so we can
+  // reconstruct the text exactly. Each token is either a "word run" or a
+  // "non-word run".
+  if (s === "") return [];
+  return s.match(/\w+|[^\w]+/g) || [];
+}
+function tokenizeLines(s) { return s.split(/\r\n|\r|\n/); }
+
+// =============================================================================
+// HTML rendering helpers
+// =============================================================================
+const $ = (id) => document.getElementById(id);
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+));
+
+function renderInline(edits) {
+  let html = "";
+  for (const e of edits) {
+    const v = escapeHtml(e.value);
+    if (e.type === "eq") html += v;
+    else if (e.type === "add") html += `<ins>${v}</ins>`;
+    else if (e.type === "del") html += `<del>${v}</del>`;
+  }
+  return `<div class="diff-view inline-view">${html}</div>`;
+}
+
+function renderWord(edits) {
+  let html = "";
+  for (const e of edits) {
+    const v = escapeHtml(e.value);
+    if (e.type === "eq") html += v;
+    else if (e.type === "add") html += `<ins>${v}</ins>`;
+    else if (e.type === "del") html += `<del>${v}</del>`;
+  }
+  return `<div class="diff-view word-view">${html}</div>`;
+}
+
+// Line-based diff with an additional pass: for "del/add" pairs that are
+// "similar" (share more than half their chars), mark them as 'changed' on
+// each side rather than 'removed'/'added'. This lets the user see at a glance
+// which lines were edited vs which were truly inserted/deleted.
+function similarity(a, b) {
+  if (a === b) return 1;
+  if (a.length === 0 || b.length === 0) return 0;
+  const longer = a.length > b.length ? a : b;
+  const shorter = a.length > b.length ? b : a;
+  let matches = 0;
+  const tokens = new Set(shorter);
+  for (const ch of longer) if (tokens.has(ch)) matches++;
+  return matches / longer.length;
+}
+
+function renderLineSplit(edits) {
+  // Pair adjacent del/add as "changed" if similarity > 0.4
+  const paired = [];
+  let i = 0;
+  while (i < edits.length) {
+    const e = edits[i];
+    if (e.type === "del" && i + 1 < edits.length && edits[i + 1].type === "add") {
+      const sim = similarity(e.value, edits[i + 1].value);
+      if (sim > 0.4) {
+        paired.push({ type: "changed", before: e.value, after: edits[i + 1].value });
+        i += 2;
+        continue;
+      }
+    }
+    paired.push(e);
+    i++;
+  }
+
+  let beforeHtml = "", afterHtml = "";
+  for (const p of paired) {
+    if (p.type === "eq") {
+      beforeHtml += `<span class="line">${escapeHtml(p.value) || "&nbsp;"}</span>`;
+      afterHtml  += `<span class="line">${escapeHtml(p.value) || "&nbsp;"}</span>`;
+    } else if (p.type === "changed") {
+      beforeHtml += `<span class="line changed">${escapeHtml(p.before) || "&nbsp;"}</span>`;
+      afterHtml  += `<span class="line changed">${escapeHtml(p.after) || "&nbsp;"}</span>`;
+    } else if (p.type === "del") {
+      beforeHtml += `<span class="line removed">${escapeHtml(p.value) || "&nbsp;"}</span>`;
+      afterHtml  += `<span class="line empty">&nbsp;</span>`;
+    } else if (p.type === "add") {
+      beforeHtml += `<span class="line empty">&nbsp;</span>`;
+      afterHtml  += `<span class="line added">${escapeHtml(p.value) || "&nbsp;"}</span>`;
+    }
+  }
+  return `<div class="split-view">
+    <div class="split-side before">${beforeHtml}</div>
+    <div class="split-side after">${afterHtml}</div>
+  </div>`;
+}
+
+function computeStats(edits, mode) {
+  let added = 0, removed = 0, unchanged = 0;
+  for (const e of edits) {
+    const len = mode === "char" ? Array.from(e.value).length : (mode === "word" ? 1 : 1);
+    if (e.type === "add") added += len;
+    else if (e.type === "del") removed += len;
+    else unchanged += len;
+  }
+  const total = added + removed + unchanged;
+  const changePct = total === 0 ? 0 : ((added + removed) / total) * 100;
+  return { added, removed, unchanged, total, changePct };
+}
+
+// =============================================================================
+// State
+// =============================================================================
+let lastEdits = { word: null, char: null, line: null };
+let currentMode = "word";
+
+// =============================================================================
+// Main flow
+// =============================================================================
+function compute() {
+  const a = $("text-before").value;
+  const b = $("text-after").value;
+  if (a === "" && b === "") {
+    $("results-panel").style.display = "none";
+    return;
+  }
+  // Tokenize and diff for all three modes. Stored so switching tabs is instant.
+  lastEdits.word = myersDiff(tokenizeWords(a), tokenizeWords(b));
+  lastEdits.char = myersDiff(tokenizeChars(a), tokenizeChars(b));
+  lastEdits.line = myersDiff(tokenizeLines(a), tokenizeLines(b));
+  $("results-panel").style.display = "block";
+  render();
+  $("results-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function render() {
+  const out = $("diff-output");
+  const stats = $("stats");
+  const edits = lastEdits[currentMode];
+  if (!edits) { out.innerHTML = `<div class="diff-view empty">No diff yet.</div>`; return; }
+
+  // Stats
+  const s = computeStats(edits, currentMode);
+  let statHtml = `
+    <div class="stat add"><span class="lbl">Added</span><span class="val">+${s.added}</span></div>
+    <div class="stat del"><span class="lbl">Removed</span><span class="val">-${s.removed}</span></div>
+    <div class="stat"><span class="lbl">Unchanged</span><span class="val">${s.unchanged}</span></div>
+    <div class="stat"><span class="lbl">Change</span><span class="val">${s.changePct.toFixed(1)}%</span></div>
+    <div class="stat"><span class="lbl">Mode</span><span class="val">${currentMode}</span></div>
+  `;
+  stats.innerHTML = statHtml;
+
+  // Body
+  if (currentMode === "char") out.innerHTML = renderInline(edits);
+  else if (currentMode === "word") out.innerHTML = renderWord(edits);
+  else if (currentMode === "line") out.innerHTML = renderLineSplit(edits);
+}
+
+// =============================================================================
+// Wiring
+// =============================================================================
+$("diff-btn").addEventListener("click", compute);
+
+$("swap-btn").addEventListener("click", () => {
+  const a = $("text-before").value;
+  $("text-before").value = $("text-after").value;
+  $("text-after").value = a;
+  if (lastEdits.word) compute();
+});
+
+$("clear-btn").addEventListener("click", () => {
+  $("text-before").value = "";
+  $("text-after").value = "";
+  $("results-panel").style.display = "none";
+  lastEdits = { word: null, char: null, line: null };
+});
+
+document.querySelectorAll(".mode-tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".mode-tab").forEach(t => t.setAttribute("aria-selected", "false"));
+    btn.setAttribute("aria-selected", "true");
+    currentMode = btn.dataset.mode;
+    render();
+  });
+  btn.addEventListener("keydown", (e) => {
+    const tabs = [...document.querySelectorAll(".mode-tab")];
+    const idx = tabs.indexOf(btn);
+    if (e.key === "ArrowRight" && idx < tabs.length - 1) { e.preventDefault(); tabs[idx + 1].focus(); tabs[idx + 1].click(); }
+    else if (e.key === "ArrowLeft" && idx > 0) { e.preventDefault(); tabs[idx - 1].focus(); tabs[idx - 1].click(); }
+  });
+});
+
+// Cmd/Ctrl + Enter to compute from either textarea
+[$("text-before"), $("text-after")].forEach(el => {
+  el.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      compute();
+    }
+  });
+});
+
+// Theme toggle
+function applyTheme(theme) {
+  document.body.dataset.theme = theme;
+  $("theme-label").textContent = theme === "dark" ? "Light" : "Dark";
+  $("theme-btn").setAttribute("aria-pressed", String(theme === "dark"));
+  const icon = $("theme-icon");
+  if (theme === "dark") {
+    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+  } else {
+    icon.innerHTML = '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>';
+  }
+}
+$("theme-btn").addEventListener("click", () => {
+  applyTheme(document.body.dataset.theme === "dark" ? "light" : "dark");
+});
+if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+  applyTheme("dark");
+}
+</script>
+</body>
+</html>
