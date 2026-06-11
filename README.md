@@ -2,6 +2,8 @@
 
 Compare two versions of a prompt and see exactly what changed. Word, character, and line-level diffs. Single HTML file. Browser-only.
 
+**Live demo:** https://0xelitesystem.github.io/prompt-diff/
+
 ## Why
 
 Prompt engineering is iteration. You tweak a phrase, the output shifts; you tweak it back, the output shifts again. Without a tool, you're squinting at two textareas trying to remember what was different.
@@ -54,7 +56,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Related
 
-- [prompt-templates](https://github.com/0xelitesystem/prompt-templates) — production prompts targeting LLM failure modes
-- [claude-eval-harness](https://github.com/0xelitesystem/claude-eval-harness) — run a prompt against multiple Claude models
-- [prompt-cost-calculator](https://github.com/0xelitesystem/prompt-cost-calculator) — estimate token cost across providers
-- [readme-slop-checker](https://github.com/0xelitesystem/readme-slop-checker) — audit a README for AI cliches
+- [prompt-templates](https://github.com/0xelitesystem/prompt-templates), production prompts targeting LLM failure modes
+- [claude-eval-harness](https://github.com/0xelitesystem/claude-eval-harness), run a prompt against multiple Claude models
+- [prompt-cost-calculator](https://github.com/0xelitesystem/prompt-cost-calculator), estimate token cost across providers
+- [readme-slop-checker](https://github.com/0xelitesystem/readme-slop-checker), audit a README for AI cliches
