@@ -50,6 +50,10 @@ The whole diff implementation is around 80 lines. Read the source.
 - Full keyboard navigation
 - WCAG AA color contrast on both themes
 
+## More
+
+Part of a catalog of single-file browser tools and plain-language references, all MIT licensed and dependency-free: [0xelitesystem.github.io](https://0xelitesystem.github.io/). Built by [elitesystem.ai](https://elitesystem.ai).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
