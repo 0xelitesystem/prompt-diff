@@ -4,13 +4,13 @@ Compare two versions of a prompt and see exactly what changed. Word, character, 
 
 **Live demo:** https://0xelitesystem.github.io/prompt-diff/
 
-## Why
+## Why this exists
 
 Prompt engineering is iteration. You tweak a phrase, the output shifts; you tweak it back, the output shifts again. Without a tool, you're squinting at two textareas trying to remember what was different.
 
-This is the smallest useful tool that solves it: paste the old version on the left, the new version on the right, click Compute. See additions in green, removals in red, unchanged text in normal weight. Three view modes for different granularities.
+This is the smallest useful tool that solves it: paste the old version on the left, the new version on the right, click Compute. See additions in green, removals in red, unchanged text in normal weight. Three view modes for different granularities. It is one HTML file with no tracking and no dependencies, MIT licensed.
 
-## Use it
+## Use
 
 Open `index.html` in any browser. Or visit the hosted version at `https://0xelitesystem.github.io/prompt-diff/` once GitHub Pages is enabled.
 
@@ -49,6 +49,23 @@ The whole diff implementation is around 80 lines. Read the source.
 - Light and dark themes, OS preference honored
 - Full keyboard navigation
 - WCAG AA color contrast on both themes
+
+## Privacy
+
+Everything runs in your browser. The page makes no network requests, and the two prompt versions you paste are never sent anywhere or stored. The only thing saved is your light or dark theme choice, kept in localStorage under the key `theme`.
+
+## Run locally
+
+```
+git clone https://github.com/0xelitesystem/prompt-diff
+cd prompt-diff
+```
+
+Open `index.html` in a browser, or serve the folder with `python -m http.server` and visit http://localhost:8000.
+
+## Build
+
+No build step. It is a single `index.html` file.
 
 ## More
 
