@@ -30,7 +30,7 @@ Use **Swap A &lt;-&gt; B** to flip the comparison without retyping.
 - Doesn't store your prompts. Refreshing the page wipes them.
 - Doesn't compare more than two versions at once. Two-way diff only.
 - Doesn't track changes over time. For version history, use Git.
-- Doesn't explain "what these changes will do to your output." That's what [claude-eval-harness](https://github.com/0xelitesystem/claude-eval-harness) is for: actually run both versions against a model and compare results.
+- Doesn't explain "what these changes will do to your output." That's what [prompt-model-side-by-side](https://github.com/0xelitesystem/prompt-model-side-by-side) is for: actually run both versions against a model and compare results.
 
 ## How the diff works
 
@@ -78,6 +78,6 @@ MIT. See [LICENSE](LICENSE).
 ## Related
 
 - [prompt-templates](https://github.com/0xelitesystem/prompt-templates), production prompts targeting LLM failure modes
-- [claude-eval-harness](https://github.com/0xelitesystem/claude-eval-harness), run a prompt against multiple Claude models
+- [prompt-model-side-by-side](https://github.com/0xelitesystem/prompt-model-side-by-side), run a prompt against multiple Claude models
 - [prompt-cost-calculator](https://github.com/0xelitesystem/prompt-cost-calculator), estimate token cost across providers
 - [readme-slop-checker](https://github.com/0xelitesystem/readme-slop-checker), audit a README for AI cliches
