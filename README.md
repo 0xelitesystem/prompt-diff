@@ -77,7 +77,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Related
 
-- [prompt-templates](https://github.com/0xelitesystem/prompt-templates), production prompts targeting LLM failure modes
+- [failure-mode-prompts](https://github.com/0xelitesystem/failure-mode-prompts), production prompts targeting LLM failure modes
 - [prompt-model-side-by-side](https://github.com/0xelitesystem/prompt-model-side-by-side), run a prompt against multiple Claude models
-- [prompt-cost-calculator](https://github.com/0xelitesystem/prompt-cost-calculator), estimate token cost across providers
+- [prompt-cost-across-models](https://github.com/0xelitesystem/prompt-cost-across-models), estimate token cost across providers
 - [readme-slop-checker](https://github.com/0xelitesystem/readme-slop-checker), audit a README for AI cliches
